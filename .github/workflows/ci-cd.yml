@@ -1,0 +1,73 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest
+
+  deploy-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
+    steps:
+      - name: Wait a bit for image availability
+        run: sleep 10
+
+      - name: Create SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Deploy to EC2 (pull & run with cleanup)
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -euo pipefail
+            IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest
+            echo "Deploying image: $IMAGE"
+            # cleanup containers/images to free space
+            if [ "$(docker ps -aq)" != "" ]; then
+              docker ps -aq | xargs -r docker rm -f || true
+            fi
+            if [ "$(docker images -q)" != "" ]; then
+              docker images -q | xargs -r docker rmi -f || true
+            fi
+            docker system prune -a --volumes -f || true
+            # pull and run
+            docker pull "$IMAGE" || exit 1
+            docker stop endo_health || true
+            docker rm endo_health || true
+            docker run -d --restart unless-stopped -p 80:8501 --name endo_health "$IMAGE"
+          EOF
