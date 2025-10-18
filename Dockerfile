@@ -19,7 +19,8 @@ WORKDIR /home/appuser/app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app
+# Copy config (explicit) and app
+COPY config.json ./
 COPY . .
 RUN chown -R appuser:appuser /home/appuser/app
 

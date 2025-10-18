@@ -55,7 +55,22 @@ except Exception:
     creds = None
 
 HERE = Path(__file__).resolve().parent.parent
-CONFIG = json.loads(open(HERE / "config.json", "r", encoding="utf-8").read())
+try:
+    CONFIG = json.loads(open(HERE / "config.json", "r", encoding="utf-8").read())
+except FileNotFoundError:
+    # If config.json is missing (e.g., image built without it), fall back to a minimal default
+    print("Warning: config.json not found; using default configuration.")
+    CONFIG = {
+        "prompt_template": "{title}",
+        "palettes": {
+            "endo": {
+                "bg": ["#FFFFFF", "#FFFFFF"],
+                "accent": "#A22A52",
+                "text": "#000000",
+                "subtext": "#000000",
+            }
+        },
+    }
 
 # Load palette overrides from repo root
 PALETTE_FILE = HERE.parent / "color_pallete.txt"

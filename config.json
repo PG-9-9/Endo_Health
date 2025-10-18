@@ -1,0 +1,26 @@
+{
+  "palettes": {
+    "endo": {
+      "bg": [
+        "#0E5459",
+        "#126E72",
+        "#158D83"
+      ],
+      "accent": "#FFD34D",
+      "text": "#FFFFFF",
+      "subtext": "#E6FFFB"
+    },
+    "calm": {
+      "bg": [
+        "#4C4F6B",
+        "#5C6B80",
+        "#6F8AA6"
+      ],
+      "accent": "#F2C94C",
+      "text": "#FFFFFF",
+      "subtext": "#EDEFF6"
+    }
+  },
+  "prompt_template": "Create a clean, minimal, flat-style header illustration about: '{title}'. Use a calm, trustworthy healthcare mood, soft shapes, high legibility space for a title overlay, and {accent_desc} accent. Avoid text in the image.",
+  "accent_desc": "a subtle yellow"
+}

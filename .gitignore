@@ -1,6 +1,6 @@
 *.png
-*.json
 __pycache__/
 *.csv
 *.env
 shortcuts.txt
+.vscode/
