@@ -39,16 +39,56 @@ python src/generate.py gemini --csv data/titles.csv --size 1600x900 --theme endo
 ├── src/
 │   └── generate.py           # CLI: scrape | pillow | gemini
 ├── config.json               # palettes & prompt templates
-├── requirements.txt
-└── README.md
+# Endo Health — Header Lab
+
+Hey, I'm the one who built this little app. I wanted a fast way to generate clean header images for blog posts — either offline typographic headers with Pillow or illustrated headers via Gemini.
+
+What it does
+- Scrapes article titles from a blog listing.
+- Summarizes an article (using a GenAI text model) and turns that into an image prompt.
+- Generates an image with Gemini (preferred) or uses Pillow for a typographic fallback.
+- Keeps UI and generated images on-brand by reading `color_pallete.txt` or using the built-in `endo` palette.
+
+Where the code lives
+- `src/generate.py`: scraping, summarization, prompt building, and image generation helpers.
+- `src/app.py`: Streamlit UI — scrape → select → summarize → prompt → generate.
+- `config.json`: palettes and prompt template.
+- `color_pallete.txt`: optional palette overrides.
+
+Tech stack
+- Python 3.10+ (I use a Conda env)
+- Streamlit for the UI
+- google-genai (preferred) / google-generativeai (legacy fallback)
+- requests + BeautifulSoup for scraping
+- Pillow for image composition
+- python-dotenv for local env vars
+
+Quick run (Windows)
+
+1) Install deps:
+
+```powershell
+F:\Conda\envs\endo\python.exe -m pip install -r requirements.txt
 ```
 
-## Notes
-- The **Pillow** backend is the default and requires no network/API keys.
-- The **Gemini** backend requires a Google API key. It turns each title into a consistent, minimal illustration using a brand-aware prompt, then overlays typography for legibility.
-- For fonts: the script uses system sans-serif fallbacks. For best results, install an open font (e.g., Inter or Noto Sans) and pass `--font-path`.
+2) Set your Google API key (optional, for Gemini):
 
-## Example (one-liner)
-```bash
-python src/generate.py scrape --url https://endometriose.app/aktuelles-2/ --limit 10 --out data/titles.csv && python src/generate.py pillow --csv data/titles.csv --size 1600x900 --theme endo --out out/
+```powershell
+:: Windows cmd
+setx GOOGLE_API_KEY "YOUR_API_KEY"
+# restart your shell to pick it up
 ```
+
+3) Run the Streamlit app:
+
+```powershell
+F:\Conda\envs\endo\python.exe -m streamlit run "F:\Projects\Endo Health\src\app.py"
+```
+
+Notes and tips
+- I prefer the modern `google-genai` client; the code falls back to the legacy client if needed.
+- The app clamps image sizes to a safe max to avoid accidental quota spikes.
+- OAuth helper files were removed — `GOOGLE_API_KEY` is the supported path now.
+
+Want me to tidy further? I can:
+- shorten remaining long comments, add unit tests for the prompt builder, or run a linter across the repo. Tell me which and I'll do it.

@@ -8,7 +8,7 @@ st.set_page_config(page_title="Endo Health-Header Lab", layout="wide")
 
 st.title("Endo Health-Header Lab")
 
-# Apply simplified palette at startup
+# Apply simplified palette CSS
 CSS_SIMPLE = """
 <style>
 /* App background and base text */
@@ -68,7 +68,7 @@ with st.form("scrape_form"):
     url = st.text_input("Blog URL to scrape", value="")
     limit = st.number_input("Max articles to fetch", value=10, min_value=1, max_value=50)
     submitted = st.form_submit_button("Scrape URL")
-    # Ensure the scrape button follows the app accent color and hover state
+    # Ensure scrape button uses accent color
     st.markdown(
         """
         <style>
@@ -102,15 +102,15 @@ if articles:
         st.session_state['generated_summary'] = ''
 
     cols = st.columns([4,1])
-    # Create controls first so state updates happen before widgets are created
+    # Create controls first so state updates occur reliably
     with cols[1]:
-        # Load theme palette to style UI
+    # Load theme palette
         try:
             theme = get_theme('endo')
         except Exception:
             theme = None
 
-        # Inject minimal CSS based on theme colors (if available)
+    # Inject theme-based CSS if available
         if theme:
             bg0 = theme.bg[0] if theme.bg else '#FFFFFF'
             bg1 = theme.bg[-1] if len(theme.bg) > 0 else bg0
@@ -126,22 +126,22 @@ if articles:
             """
             st.markdown(css, unsafe_allow_html=True)
 
-        # Controls column: size + the three-step buttons stacked together for clear UX
+    # Controls column: size + three-step buttons
         sel_size = st.text_input("Image size (WxH)", value="1024x576", key='sel_size')
 
-        # Button: Create Summary (always enabled)
+    # Button: Create summary
         if st.button("1 — Create summary for selected article", key='btn_summary'):
             try:
                 article = articles[st.session_state['selected_idx']]
                 article_url = article.get('url')
                 summary, _ = summarize_article_and_prompt(article_url, article.get('title',''), api_key=os.environ.get('GOOGLE_API_KEY',''))
                 st.session_state['generated_summary'] = summary
-                # Clear any previously generated prompt so the user explicitly creates a prompt from the summary
+                # Clear previous prompt so user makes a new one from the summary
                 st.session_state['generated_prompt'] = ''
             except Exception as e:
                 st.error(f"Failed to summarize article: {e}")
 
-        # Button: Create Prompt (only shown/enabled after summary exists)
+    # Button: Create prompt (enabled after summary)
         if st.session_state.get('generated_summary'):
             if st.button("2 — Create prompt from summary", key='btn_prompt'):
                 try:
@@ -154,33 +154,33 @@ if articles:
         else:
             st.button("2 — Create prompt from summary", key='btn_prompt_disabled', disabled=True)
 
-        # Button: Create Image (only shown/enabled after prompt exists)
+    # Button: Create image (enabled after prompt)
         if st.session_state.get('generated_prompt'):
             if st.button("3 — Create image for selected article", key='btn_generate'):
                 st.info("Generating image — Please wait :)")
                 try:
-                    # create out dir in temp and call make_gemini_image
+                    # create temp out dir and call make_gemini_image
                     tmp = Path(tempfile.gettempdir()) / "endo_gemini_out"
                     tmp.mkdir(parents=True, exist_ok=True)
-                    # Use the theme loader by name 'endo' (which may be overridden by color_pallete.txt)
+                    # Load theme by name 'endo'
                     theme = get_theme('endo')
-                    # Use the generated prompt as override when calling the image generator
+                    # Use generated prompt as override
                     prompt_override = st.session_state.get('generated_prompt') or None
                     w,h = tuple(map(int, sel_size.split('x')))
                     img = make_gemini_image(articles[st.session_state['selected_idx']]['title'], (w,h), theme, api_key=os.environ.get('GOOGLE_API_KEY','') or None, font_path=None, creds=None, prompt_override=prompt_override)
                     out_path = tmp / "last_gemini.png"
                     img.save(out_path, format="PNG")
-                    # Save the prompt next to the image (private)
+                    # Save the prompt privately next to the image
                     try:
                         prompt_file = tmp / "last_gemini_prompt.txt"
                         with open(prompt_file, "w", encoding="utf-8") as pf:
                             pf.write(st.session_state.get('generated_prompt',''))
                     except Exception:
                         pass
-                    # Display the image (use width='stretch' per Streamlit API changes)
+                    # Display the image
                     st.image(str(out_path), caption="Generated image", width='stretch')
                     st.success("Image generated")
-                    # Provide download buttons for image and prompt
+                    # Provide downloads for image and prompt
                     try:
                         with open(out_path, 'rb') as f:
                             img_bytes = f.read()
@@ -196,9 +196,9 @@ if articles:
         else:
             st.button("3 — Create image for selected article", key='btn_generate_disabled', disabled=True)
 
-    # Now render the main column (select + widgets) after controls to avoid session_state modification errors
+    # Render main column (select + widgets) after controls
     with cols[0]:
-        # present articles by index with titles as labels
+    # Present articles in selectbox
         sel_idx = st.selectbox("Select an article", options=list(range(len(articles))), format_func=lambda i: articles[i]['title'], index=st.session_state.get('selected_idx', 0), key='selected_idx')
 
         st.subheader("Article summary")
