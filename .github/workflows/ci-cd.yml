@@ -53,6 +53,10 @@ jobs:
             echo "EC2 deploy secrets not set; skipping deploy job."
             exit 0
           fi
+          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
+            echo "DOCKERHUB_USERNAME secret not set; cannot determine image name. Set DOCKERHUB_USERNAME in repo secrets."
+            exit 1
+          fi
 
       - name: Create SSH key
         run: |
