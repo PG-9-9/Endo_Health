@@ -110,11 +110,26 @@ jobs:
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "chmod 600 ~/deploy.env"
           fi
 
+          # Create and upload image_full.txt containing IMAGE_FULL for the remote script to read
+          if [ -n "${IMAGE_FULL:-}" ]; then
+            echo "$IMAGE_FULL" > ./image_full.txt
+            chmod 600 ./image_full.txt
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ./image_full.txt $EC2_USER@$EC2_HOST:~/image_full.txt
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "chmod 600 ~/image_full.txt"
+            # remove local copy
+            rm -f ./image_full.txt || true
+          fi
+
           # Run remote deploy script: pull, cleanup, run with --env-file if provided
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << 'EOF'
             set -euo pipefail
-            # Use IMAGE_FULL provided by the runner via env expansion
-            IMAGE_FULL="${IMAGE_FULL}"
+            # Read IMAGE_FULL from uploaded file (avoid unbound variables in shell)
+            if [ -f ~/image_full.txt ]; then
+              IMAGE_FULL=$(cat ~/image_full.txt)
+            else
+              echo "ERROR: IMAGE_FULL file missing on remote host" >&2
+              exit 1
+            fi
             echo "Deploying container from short tag (pulling remote image)"
             if [ "$(docker ps -aq)" != "" ]; then
               docker ps -aq | xargs -r docker rm -f || true
@@ -133,4 +148,6 @@ jobs:
             else
               docker run -d --restart unless-stopped -p 80:8501 --name endo_health "$IMAGE_FULL"
             fi
+            # cleanup the uploaded image_full file
+            rm -f ~/image_full.txt || true
           EOF
