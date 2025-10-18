@@ -45,8 +45,11 @@ jobs:
         run: sleep 10
 
       - name: Check deploy secrets
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          if [ -z "${{ secrets.EC2_HOST }}" ] || [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+          if [ -z "$EC2_HOST" ] || [ -z "$EC2_SSH_KEY" ]; then
             echo "EC2 deploy secrets not set; skipping deploy job."
             exit 0
           fi
@@ -58,10 +61,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
 
       - name: Deploy to EC2 (pull & run with cleanup)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
             set -euo pipefail
-            IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest
+            IMAGE=$DOCKERHUB_USERNAME/endo-health:latest
             echo "Deploying image: $IMAGE"
             # cleanup containers/images to free space
             if [ "$(docker ps -aq)" != "" ]; then
@@ -75,5 +82,6 @@ jobs:
             docker pull "$IMAGE" || exit 1
             docker stop endo_health || true
             docker rm endo_health || true
-            docker run -d --restart unless-stopped -p 80:8501 --name endo_health "$IMAGE"
+            docker run -d --restart unless-stopped -p 80:8501 \
+              --name endo_health "$IMAGE"
           EOF
