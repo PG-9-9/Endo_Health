@@ -68,6 +68,18 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+      - name: Create .env with GOOGLE_API_KEY on runner
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          if [ -z "${GOOGLE_API_KEY:-}" ]; then
+            echo "GOOGLE_API_KEY secret not set; continuing without creating deploy.env"
+            exit 0
+          fi
+          # Create a temporary .env file with strict permissions
+          echo "GOOGLE_API_KEY=${GOOGLE_API_KEY}" > ./deploy.env
+          chmod 600 ./deploy.env
+
       - name: Debug print short image name
         env:
           IMAGE_SHORT: ${{ needs.build-and-push.outputs.image_short }}
@@ -84,17 +96,26 @@ jobs:
           IMAGE_FULL="docker.io/${DOCKERHUB_USERNAME}/${IMAGE_SHORT}"
           echo "IMAGE_FULL=$IMAGE_FULL" >> $GITHUB_ENV
 
-      - name: Deploy to EC2 (pull & run with cleanup)
+      - name: Upload .env and deploy to EC2 (pull & run with cleanup)
         env:
           IMAGE_FULL: ${{ env.IMAGE_FULL }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
+          set -euo pipefail
+          # Upload deploy.env if present
+          if [ -f ./deploy.env ]; then
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key ./deploy.env $EC2_USER@$EC2_HOST:~/deploy.env
+            # ensure strict permissions on host side
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST "chmod 600 ~/deploy.env"
+          fi
+
+          # Run remote deploy script: pull, cleanup, run with --env-file if provided
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << 'EOF'
             set -euo pipefail
-            # IMAGE_FULL is expanded on the runner and inserted here; do not echo it to logs
+            # Use IMAGE_FULL provided by the runner via env expansion
+            IMAGE_FULL="${IMAGE_FULL}"
             echo "Deploying container from short tag (pulling remote image)"
-            # cleanup containers/images to free space
             if [ "$(docker ps -aq)" != "" ]; then
               docker ps -aq | xargs -r docker rm -f || true
             fi
@@ -102,10 +123,14 @@ jobs:
               docker images -q | xargs -r docker rmi -f || true
             fi
             docker system prune -a --volumes -f || true
-            # pull and run
             docker pull "$IMAGE_FULL" || exit 1
             docker stop endo_health || true
             docker rm endo_health || true
-            docker run -d --restart unless-stopped -p 80:8501 \
-              --name endo_health "$IMAGE_FULL"
+            if [ -f ~/deploy.env ]; then
+              docker run -d --restart unless-stopped -p 80:8501 --env-file ~/deploy.env --name endo_health "$IMAGE_FULL"
+              # remove the env file after container has started
+              rm -f ~/deploy.env || true
+            else
+              docker run -d --restart unless-stopped -p 80:8501 --name endo_health "$IMAGE_FULL"
+            fi
           EOF
