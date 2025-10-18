@@ -37,12 +37,12 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest
+          tags: ${{ github.repository_owner }}/endo-health:latest
 
       - name: Set image name output
         id: set_image
         run: |
-          echo "image=${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest" >> $GITHUB_OUTPUT
+          echo "image=${{ github.repository_owner }}/endo-health:latest" >> $GITHUB_OUTPUT
 
   deploy-ec2:
     needs: build-and-push
@@ -59,10 +59,6 @@ jobs:
           if [ -z "$EC2_HOST" ] || [ -z "$EC2_SSH_KEY" ]; then
             echo "EC2 deploy secrets not set; skipping deploy job."
             exit 0
-          fi
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ]; then
-            echo "DOCKERHUB_USERNAME secret not set; cannot determine image name. Set DOCKERHUB_USERNAME in repo secrets."
-            exit 1
           fi
 
       - name: Create SSH key
