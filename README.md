@@ -1,44 +1,68 @@
-# Auto Blog Header Generator (Endo-App mini challenge)
+# Endo Health — Header Lab
 
-Generate on-brand header images for the latest blog posts automatically.
+Hey — I built this app to generate clean header images for blog posts using an AI image backend.
 
-## Features
-- Scrape the 10 most recent blog titles from a page (e.g. `https://endometriose.app/aktuelles-2/`).
-- Generate clean, legible typographic headers **offline** with Pillow (no API needed).
-- Optional: use **Gemini 2.5 Flash Image** (aka *Nano/Flash Banana*) for *illustrated* headers using one-line prompts.
-- Pluggable backends, brand color palettes, smart text-fitting, and CSV input support.
+Key points
+- The UI scrapes article titles from a listing and lets you summarize an article, build an image prompt from that summary, and generate an image using the AI image backend (Gemini via the modern client). The repo no longer uses Pillow for generation.
+- The number of articles to fetch is adjustable in the UI via "Max articles to fetch".
 
-## Quickstart (Typography-only, no API)
-```bash
-python -m venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+What it does (workflow)
+- Scrape: provide a blog listing URL and choose how many titles to fetch.
+- Select: pick an article from the scraped list.
+- Summarize: create a 2–3 sentence summary of the article using the text model.
+- Prompt: convert the summary into a concise image prompt.
+- Generate: create the image using the AI image model and download the image and prompt.
 
-# 1) Scrape latest titles (or skip and use titles.csv)
-python src/generate.py scrape --url https://endometriose.app/aktuelles-2/ --limit 10 --out data/titles.csv
+UI flow (how to use)
+1. Start the app and paste a blog listing URL into the "Blog URL to scrape" field. Set "Max articles to fetch" to how many titles you want (the number is not fixed).
+2. Click "Scrape URL". The article list appears in the left column.
+3. Select an article from the drop-down.
+4. Click "1 — Create summary for selected article" to generate a short summary.
+5. Click "2 — Create prompt from summary" to make the image prompt.
+6. Click "3 — Create image for selected article" to generate and view the image. Download buttons are provided for image and prompt.
 
-# 2) Generate 1600x900 headers with the "endo" palette + soft gradient
-python src/generate.py pillow --csv data/titles.csv --size 1600x900 --theme endo --out out/
+Where the code lives
+- `src/generate.py`: scraping, summarization, prompt building, and image generation.
+- `src/app.py`: Streamlit UI and event flow.
+- `config.json`: palettes & prompt template.
+- `color_pallete.txt`: optional palette overrides.
+- `environment.yml`: conda environment specification.
+
+Stack
+- Python 3.10+
+- Streamlit
+- google-genai (modern client)
+- requests, BeautifulSoup, python-dotenv
+
+Quickstart (Conda)
+1) Create the conda env from the provided YAML:
+
+```powershell
+conda env create -f environment.yml
+conda activate endo
 ```
 
-## Optional: Gemini 2.5 Flash Image (aka "Flash/Nano Banana")
-```bash
-export GOOGLE_API_KEY=YOUR_KEY_HERE  # Windows PowerShell: $env:GOOGLE_API_KEY='YOUR_KEY_HERE'
+2) Set your `GOOGLE_API_KEY` (required to generate images):
 
-# Generate AI-illustrated headers (keeps layout consistent and adds a footer bar with title overlay)
-python src/generate.py gemini --csv data/titles.csv --size 1600x900 --theme endo --out out/
+```powershell
+setx GOOGLE_API_KEY "YOUR_API_KEY"
+# restart your shell/IDE to pick it up
 ```
-*You can tune the prompt template in `config.json`.*
 
-## Project layout
+3) Run the Streamlit app:
+
+```powershell
+python -m streamlit run src/app.py
 ```
-.
-├── assets/
-├── data/
-│   └── titles.csv            # created by the scraper (or you can hand-edit)
-├── out/                      # generated headers
-├── src/
-│   └── generate.py           # CLI: scrape | pillow | gemini
-├── config.json               # palettes & prompt templates
+
+Notes
+- The repo focuses on the AI image backend only; Pillow generation has been removed.
+- The README avoids mentioning specific internal model versions; set a different model via the `GEMINI_MODEL` env var if needed.
+- The app clamps image sizes to a safe maximum to reduce accidental quota usage.
+
+If you'd like, I can:
+- add a tiny test for the prompt builder, run a linter, or remove any remaining Pillow references from code and docs.
+
 # Endo Health — Header Lab
 
 Hey, I'm the one who built this little app. I wanted a fast way to generate clean header images for blog posts — either offline typographic headers with Pillow or illustrated headers via Gemini.
@@ -85,10 +109,3 @@ setx GOOGLE_API_KEY "YOUR_API_KEY"
 F:\Conda\envs\endo\python.exe -m streamlit run "F:\Projects\Endo Health\src\app.py"
 ```
 
-Notes and tips
-- I prefer the modern `google-genai` client; the code falls back to the legacy client if needed.
-- The app clamps image sizes to a safe max to avoid accidental quota spikes.
-- OAuth helper files were removed — `GOOGLE_API_KEY` is the supported path now.
-
-Want me to tidy further? I can:
-- shorten remaining long comments, add unit tests for the prompt builder, or run a linter across the repo. Tell me which and I'll do it.

@@ -1,0 +1,14 @@
+name: endo
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - streamlit
+    - google-genai
+    - requests
+    - beautifulsoup4
+    - python-dotenv
+    - pillow
