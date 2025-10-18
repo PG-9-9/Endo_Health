@@ -40,10 +40,16 @@ jobs:
   deploy-ec2:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: ${{ secrets.EC2_HOST != '' && secrets.EC2_SSH_KEY != '' }}
     steps:
       - name: Wait a bit for image availability
         run: sleep 10
+
+      - name: Check deploy secrets
+        run: |
+          if [ -z "${{ secrets.EC2_HOST }}" ] || [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "EC2 deploy secrets not set; skipping deploy job."
+            exit 0
+          fi
 
       - name: Create SSH key
         run: |
