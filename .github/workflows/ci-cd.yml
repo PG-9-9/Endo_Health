@@ -13,7 +13,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.set_image.outputs.image }}
+      image_short: ${{ steps.set_image.outputs.image_short }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,12 +37,13 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ github.repository_owner }}/endo-health:latest
+          tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/endo-health:latest
 
-      - name: Set image name output
+      - name: Set short image output
         id: set_image
         run: |
-          echo "image=${{ github.repository_owner }}/endo-health:latest" >> $GITHUB_OUTPUT
+          # Use short non-secret image identifier so GitHub won't treat it as secret
+          echo "image_short=endo-health:latest" >> $GITHUB_OUTPUT
 
   deploy-ec2:
     needs: build-and-push
@@ -67,21 +68,32 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-      - name: Debug print resolved image name
+      - name: Debug print short image name
         env:
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
+          IMAGE_SHORT: ${{ needs.build-and-push.outputs.image_short }}
         run: |
-          echo "Resolved IMAGE for deploy: '$IMAGE'"
+          echo "Resolved IMAGE_SHORT for deploy: '$IMAGE_SHORT'"
+
+      - name: Construct full image name on runner
+        id: construct_image
+        env:
+          IMAGE_SHORT: ${{ needs.build-and-push.outputs.image_short }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          # Do not print DOCKERHUB_USERNAME or the full image to logs (it may be considered sensitive)
+          IMAGE_FULL="docker.io/${DOCKERHUB_USERNAME}/${IMAGE_SHORT}"
+          echo "IMAGE_FULL=$IMAGE_FULL" >> $GITHUB_ENV
 
       - name: Deploy to EC2 (pull & run with cleanup)
         env:
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
+          IMAGE_FULL: ${{ env.IMAGE_FULL }}
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key $EC2_USER@$EC2_HOST << EOF
             set -euo pipefail
-            echo "Deploying image: $IMAGE"
+            # IMAGE_FULL is expanded on the runner and inserted here; do not echo it to logs
+            echo "Deploying container from short tag (pulling remote image)"
             # cleanup containers/images to free space
             if [ "$(docker ps -aq)" != "" ]; then
               docker ps -aq | xargs -r docker rm -f || true
@@ -91,9 +103,9 @@ jobs:
             fi
             docker system prune -a --volumes -f || true
             # pull and run
-            docker pull "$IMAGE" || exit 1
+            docker pull "$IMAGE_FULL" || exit 1
             docker stop endo_health || true
             docker rm endo_health || true
             docker run -d --restart unless-stopped -p 80:8501 \
-              --name endo_health "$IMAGE"
+              --name endo_health "$IMAGE_FULL"
           EOF
