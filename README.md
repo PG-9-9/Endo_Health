@@ -2,6 +2,10 @@
 
 Hey — I built this app to generate clean header images for blog posts using an AI image backend.
 
+🌐 **Live Demo:** [http://project-demo.live/](http://project-demo.live/)
+
+---
+
 ## 🧩 Key Features
 - Scrapes article titles from a blog listing and summarizes them using a GenAI text model.
 - Builds concise image prompts from the summaries and generates visuals using the Gemini image backend (no Pillow dependency).
@@ -48,7 +52,10 @@ Hey — I built this app to generate clean header images for blog posts using an
 - **Python** 3.10+  
 - **Streamlit** for UI  
 - **google-genai** (modern client)  
-- **requests**, **BeautifulSoup**, **python-dotenv**
+- **requests**, **BeautifulSoup**, **python-dotenv**  
+- **Docker** for containerization  
+- **GitHub Actions** for CI/CD automation  
+- **AWS EC2** for production deployment  
 
 ---
 
@@ -77,12 +84,28 @@ python -m streamlit run src/app.py
 
 ---
 
-## 🧾 Notes
+## ⚙️ CI/CD Pipeline Overview
 
-- Focuses solely on the **AI image backend** — Pillow generation removed.  
-- No internal model versions are hardcoded. You can override via `GEMINI_MODEL` env var.  
-- Image sizes are clamped to a safe maximum to avoid excessive quota usage.
+The **Endo Health — Header Lab** app is continuously integrated and deployed using a lightweight CI/CD setup built on **Docker**, **GitHub Actions**, and **AWS EC2**.
+
+### 🧩 1. Dockerization
+- The app is containerized using a `Dockerfile` that defines dependencies, environment variables, and runtime.  
+- The image includes Streamlit and all GenAI libraries for full reproducibility.  
+
+### ⚙️ 2. GitHub Actions (CI/CD)
+- Every push to `main` triggers a **GitHub Actions workflow**.  
+- The workflow runs:
+  - **Linting and testing**  
+  - **Docker image build**  
+  - **Push to AWS ECR**  
+  - **Remote deployment trigger via SSH**  
+
+### ☁️ 3. AWS EC2 Deployment
+- The EC2 instance hosts a **Dockerized Streamlit service** exposed on port `80`.  
+- GitHub Actions connects to EC2 using SSH secrets (`EC2_SSH_KEY`) to pull the latest image and restart the container automatically.  
+- The latest deployed version is accessible at:  
+  👉 **[http://project-demo.live/](http://project-demo.live/)**
+
+This ensures seamless CI/CD automation — each commit leads to a tested, containerized, and live deployment without manual steps.
 
 ---
-
-
