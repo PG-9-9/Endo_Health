@@ -1,0 +1,5 @@
+Color Role,Hex Code,Description/Example Use
+Primary,#A22A52,"Deep magenta-pink for headers, buttons (e.g., navigation tabs like ""Learn"", ""Evaluate""), and accents."
+Secondary,#212d3e,"Darker navy blue for card backgrounds, gradients, or hovered states."
+Accent,#E91E63,"Bright pink for highlights, icons, or call-to-action elements like the ""+"" button."
+Background,#FFFFFF,White for main content areas and cards.
