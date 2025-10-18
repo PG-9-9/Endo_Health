@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup
 # imaging
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-# optional: Gemini - prefer modern `google.genai` client but keep older client available
 try:
     from google import genai as genai_mod
 except Exception:
@@ -25,13 +24,13 @@ try:
 except Exception:
     genai_old = None
 
-# Try to load local OAuth helper (optional)
 try:
-    import sys
+    import sys, importlib
     repo_root = Path(__file__).resolve().parent.parent
     sys.path.insert(0, str(repo_root))
     try:
-        from load_creds import load_creds
+        mod = importlib.import_module('load_creds')
+        load_creds = getattr(mod, 'load_creds', None)
     except Exception:
         load_creds = None
 
@@ -39,24 +38,26 @@ try:
     if load_creds:
         try:
             creds = load_creds()
-            # configure older client if present
+            # configure legacy client if available
             if creds and genai_old:
                 try:
                     genai_old.configure(credentials=creds)
                 except Exception:
                     pass
-            # export token for REST fallback or new client use
+            # set env var for REST fallback
             if creds and getattr(creds, 'token', None):
                 os.environ.setdefault('GOOGLE_OAUTH_BEARER', creds.token)
         except Exception:
             pass
 except Exception:
-    pass
+    # non-fatal if importlib or other ops fail
+    load_creds = None
+    creds = None
 
 HERE = Path(__file__).resolve().parent.parent
 CONFIG = json.loads(open(HERE / "config.json", "r", encoding="utf-8").read())
 
-# Load palette overrides from repo root (optional)
+# Load palette overrides from repo root
 PALETTE_FILE = HERE.parent / "color_pallete.txt"
 if PALETTE_FILE.exists():
     try:
@@ -161,7 +162,7 @@ def draw_gradient(size: Tuple[int,int], colors: List[str]) -> Image.Image:
     return Image.composite(top, base, mask)
 
 def add_soft_shapes(img: Image.Image, accent_hex: str):
-    """Draw a couple of soft blobs and arcs for visual interest."""
+    """Draw soft decorative blobs."""
     draw = ImageDraw.Draw(img, "RGBA")
     w,h = img.size
     def hex_to_rgba(hx, a=40):
@@ -180,7 +181,7 @@ def overlay_text(img: Image.Image, title: str, palette: dict, font_path: Optiona
     w, h = img.size
     draw = ImageDraw.Draw(img)
 
-    # footer bar for legibility — create a translucent bar using the accent color
+    # footer bar: translucent accent for legibility
     footer_h = int(h * 0.28)
     def hex_to_rgba(hx: str, a: int = 120):
         hx = hx.lstrip('#')
@@ -246,7 +247,7 @@ def scrape_titles(url: str, limit: int=10) -> List[str]:
 
 
 def scrape_titles_with_links(url: str, limit: int=10) -> List[dict]:
-    """Return a list of dicts {'title': title, 'url': absolute_url} for article links found on the listing page."""
+    """Return [{'title', 'url'}] for links on the listing page."""
     r = requests.get(url, timeout=15)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "html.parser")
@@ -295,7 +296,7 @@ def make_gemini_prompt(title: str) -> str:
 
 
 def build_prompt_from_summary(summary_text: str, title_text: str) -> str:
-    """Construct a concise image prompt from a summary and title."""
+    """Make a short image prompt from summary/title."""
     words = summary_text.split()
     core = " ".join(words[:25]) if words else title_text
     core = core.rstrip('.,;:')
@@ -304,7 +305,7 @@ def build_prompt_from_summary(summary_text: str, title_text: str) -> str:
 
 
 def _genai_text(contents: list, model_name: Optional[str] = None, api_key: Optional[str] = None, creds: Optional[object]=None) -> str:
-    """Helper to call the modern genai client for text generation and return the combined text output."""
+    """Call modern genai client and return text output."""
     api_key_env = api_key or os.environ.get("GOOGLE_API_KEY")
     if genai_mod is None:
         raise RuntimeError("Modern genai client not available for text generation")
@@ -334,9 +335,7 @@ def _genai_text(contents: list, model_name: Optional[str] = None, api_key: Optio
 
 
 def summarize_article_and_prompt(article_url: str, title: str, api_key: Optional[str]=None, creds: Optional[object]=None) -> Tuple[str,str]:
-    """Fetch article text, summarize it and build an image prompt from the summary.
-    Returns (summary, image_prompt).
-    """
+    """Fetch article, summarize, and return (summary, image_prompt)."""
     # fetch article
     try:
         r = requests.get(article_url, timeout=20)
@@ -498,8 +497,10 @@ def cmd_gemini(args):
     creds = None
     if not api_key:
         try:
-            from load_creds import load_creds
-            creds = load_creds()
+            import importlib
+            mod = importlib.import_module('load_creds')
+            lc = getattr(mod, 'load_creds', None)
+            creds = lc() if lc else None
         except Exception:
             creds = None
 
@@ -515,8 +516,10 @@ def cmd_gemini(args):
     creds = None
     if not api_key:
         try:
-            from load_creds import load_creds
-            creds = load_creds()
+            import importlib
+            mod = importlib.import_module('load_creds')
+            lc = getattr(mod, 'load_creds', None)
+            creds = lc() if lc else None
         except Exception:
             creds = None
 
