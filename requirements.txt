@@ -1,0 +1,7 @@
+# Core
+requests
+beautifulsoup4
+Pillow
+google-generativeai
+google-genai
+streamlit
